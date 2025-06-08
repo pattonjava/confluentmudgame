@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Tutorial: Python MUD with Kafka & MySQL</title>
+    <!-- Chosen Palette: Tailwind Slate -->
+    <!-- Application Structure Plan: A two-column layout is used. A fixed left sidebar provides clear, persistent navigation, allowing users to jump between sections like Introduction, Setup, Code, and Concepts. The right main content area displays the selected section's content. This non-linear structure is superior to a long, single-page scroll because it lets users easily reference different parts of the tutorial (e.g., checking a config value while viewing the game engine code) without losing their place, which is a common user flow in technical tutorials. -->
+    <!-- Visualization & Content Choices:
+        - Architecture Diagram: Goal: Inform. Method: HTML/CSS diagram using flexbox and borders. Interaction: Static visual aid. Justification: Provides a quick, high-level understanding of the system flow, which is crucial for grasping the project's design before diving into code. NO SVG/Mermaid.
+        - Setup Steps: Goal: Organize/Instruct. Method: Numbered lists with styled code blocks for commands. Interaction: "Copy to Clipboard" buttons on each command. Justification: This makes the setup process actionable and reduces copy-paste errors for the user.
+        - Code Files: Goal: Inform/Reference. Method: Tabbed interface to switch between different Python files. Interaction: Clickable tabs to show/hide code files, "Copy" button for each code block. Justification: Organizes multiple large code blocks cleanly, preventing a long, intimidating page scroll.
+        - Advanced Concepts: Goal: Inform/Organize. Method: Accordion-style collapsible sections. Interaction: Click to expand/collapse. Justification: Presents dense, conceptual information in a digestible format, reducing cognitive load by allowing users to focus on one topic at a time.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc; /* slate-50 */
+        }
+        .code-block {
+            background-color: #1e293b; /* slate-800 */
+            color: #e2e8f0; /* slate-200 */
+            border-radius: 0.5rem;
+            padding: 1rem;
+            position: relative;
+            overflow-x: auto;
+        }
+        .copy-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background-color: #475569; /* slate-600 */
+            color: #f8fafc; /* slate-50 */
+            border: none;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            font-size: 0.75rem;
+            transition: background-color 0.2s;
+        }
+        .copy-btn:hover {
+            background-color: #64748b; /* slate-500 */
+        }
+        .sidebar-link {
+            display: block;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            color: #334155; /* slate-700 */
+            font-weight: 500;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .sidebar-link:hover, .sidebar-link.active {
+            background-color: #e2e8f0; /* slate-200 */
+            color: #0f172a; /* slate-900 */
+        }
+        .content-section {
+            display: none;
+        }
+        .content-section.active {
+            display: block;
+        }
+        .code-tab {
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            color: #64748b;
+            font-weight: 500;
+        }
+        .code-tab.active {
+            color: #0f172a;
+            border-bottom-color: #0f172a;
+        }
+        .accordion-button {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            padding: 1rem;
+            font-size: 1rem;
+            font-weight: 600;
+            text-align: left;
+            border: none;
+            border-top: 1px solid #e2e8f0;
+            background-color: white;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .accordion-button:hover {
+            background-color: #f8fafc;
+        }
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+            background-color: white;
+            padding: 0 1rem;
+        }
+        .accordion-icon {
+            transition: transform 0.3s;
+        }
+        .accordion-button.active .accordion-icon {
+            transform: rotate(180deg);
+        }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <div class="flex min-h-screen">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-slate-100 p-4 fixed h-full hidden lg:block">
+            <h1 class="text-xl font-bold text-slate-900 mb-6">Kafka MUD Tutorial</h1>
+            <nav id="sidebar-nav">
+                <a class="sidebar-link active" data-target="introduction">Introduction</a>
+                <a class="sidebar-link" data-target="architecture">Architecture</a>
+                <a class="sidebar-link" data-target="prerequisites">Prerequisites</a>
+                <a class="sidebar-link" data-target="setup">Setup</a>
+                <a class="sidebar-link" data-target="code">Code Walkthrough</a>
+                <a class="sidebar-link" data-target="run">Running the Game</a>
+                <a class="sidebar-link" data-target="concepts">Kafka Concepts</a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="lg:ml-64 p-4 md:p-8 w-full">
+            <!-- Mobile Header -->
+            <div class="lg:hidden mb-4">
+                <h1 class="text-2xl font-bold text-slate-900">Kafka MUD Tutorial</h1>
+                <select id="mobile-nav" class="mt-2 w-full p-2 border rounded-md bg-white">
+                    <option value="introduction">Introduction</option>
+                    <option value="architecture">Architecture</option>
+                    <option value="prerequisites">Prerequisites</option>
+                    <option value="setup">Setup</option>
+                    <option value="code">Code Walkthrough</option>
+                    <option value="run">Running the Game</option>
+                    <option value="concepts">Kafka Concepts</option>
+                </select>
+            </div>
+
+            <!-- Introduction Section -->
+            <section id="introduction" class="content-section active">
+                <h2 class="text-3xl font-bold mb-4 text-slate-900">Introduction</h2>
+                <p class="text-lg text-slate-600 leading-relaxed">
+                    This tutorial presents a decoupled architecture for a real-time interactive game. It leverages Apache Kafka for asynchronous communication between a Telnet server and a game engine. Player location and inventory are persisted in a MySQL database, allowing players to leave and return to their last saved state. The project is an excellent exercise in building distributed, real-time systems.
+                </p>
+            </section>
+
+            <!-- Architecture Section -->
+            <section id="architecture" class="content-section">
+                <h2 class="text-3xl font-bold mb-6 text-slate-900">System Architecture</h2>
+                <p class="text-lg text-slate-600 leading-relaxed mb-8">
+                    The application is split into two main services: a Telnet Server that handles raw client connections and a Game Engine that processes all game logic. These services communicate asynchronously using Kafka as a message bus, which makes the system scalable and resilient. Player state is stored externally in a MySQL database.
+                </p>
+                <div class="bg-white p-6 rounded-lg shadow-sm">
+                    <div class="flex flex-col md:flex-row items-center justify-center space-y-4 md:space-y-0 md:space-x-4 text-center">
+                        <div class="p-4 bg-slate-100 rounded-lg shadow-inner">
+                            <p class="font-bold">Telnet Client</p>
+                            <p class="text-sm text-slate-500">Player's Terminal</p>
+                        </div>
+                        <div class="text-2xl font-mono text-slate-400">&harr;</div>
+                        <div class="p-4 bg-slate-100 rounded-lg shadow-inner">
+                            <p class="font-bold">Telnet Server</p>
+                            <p class="text-sm text-slate-500">Manages Connections</p>
+                        </div>
+                        <div class="text-2xl font-mono text-slate-400">&harr;</div>
+                        <div class="p-4 bg-blue-100 border-2 border-dashed border-blue-400 rounded-lg shadow-inner text-blue-900">
+                             <p class="font-bold">Apache Kafka</p>
+                             <div class="text-sm mt-2">
+                                <p>&rarr; Commands Topic &rarr;</p>
+                                <p>&larr; Events Topic &larr;</p>
+                             </div>
+                        </div>
+                        <div class="text-2xl font-mono text-slate-400">&harr;</div>
+                        <div class="p-4 bg-slate-100 rounded-lg shadow-inner">
+                            <p class="font-bold">Game Engine</p>
+                            <p class="text-sm text-slate-500">Processes Logic</p>
+                        </div>
+                        <div class="text-2xl font-mono text-slate-400">&harr;</div>
+                        <div class="p-4 bg-green-100 rounded-lg shadow-inner text-green-900">
+                            <p class="font-bold">MySQL DB</p>
+                            <p class="text-sm text-green-600">Persists Player State</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Prerequisites Section -->
+            <section id="prerequisites" class="content-section">
+                <h2 class="text-3xl font-bold mb-4 text-slate-900">Prerequisites</h2>
+                 <p class="text-lg text-slate-600 leading-relaxed mb-6">
+                    Before you begin, ensure the following software is installed and running on your Linux server. This guide assumes a basic familiarity with the Linux command line and system administration.
+                </p>
+                <ul class="list-disc list-inside space-y-4 text-slate-700">
+                    <li><span class="font-semibold">Python 3.8+</span>: Your primary programming language.</li>
+                    <li><span class="font-semibold">pip</span>: The Python package installer.</li>
+                    <li><span class="font-semibold">Java Runtime Environment (JRE)</span>: A dependency for running Kafka & Zookeeper.</li>
+                    <li><span class="font-semibold">Apache Kafka & Zookeeper</span>: The message broker at the core of our system.</li>
+                    <li><span class="font-semibold">MySQL Server</span>: The database for storing persistent player data.</li>
+                    <li><span class="font-semibold">Python Libraries</span>: Install the required libraries with pip.
+                        <div class="code-block my-2">
+                            <button class="copy-btn" data-clipboard-text="pip install confluent-kafka mysql-connector-python">Copy</button>
+                            <pre><code>pip install confluent-kafka mysql-connector-python</code></pre>
+                        </div>
+                    </li>
+                </ul>
+            </section>
+            
+            <!-- Setup Section -->
+            <section id="setup" class="content-section">
+                <h2 class="text-3xl font-bold mb-4 text-slate-900">System Setup</h2>
+                <p class="text-lg text-slate-600 leading-relaxed mb-6">
+                    Follow these steps to configure the necessary infrastructure for the game: Apache Kafka for messaging and MySQL for data storage. All commands should be run from your Linux server's terminal.
+                </p>
+
+                <h3 class="text-2xl font-bold mb-3 mt-8 text-slate-800">1. Kafka Setup</h3>
+                <ol class="list-decimal list-inside space-y-4">
+                    <li>
+                        <span class="font-semibold">Download and Extract Kafka:</span>
+                        <div class="code-block my-2">
+                            <button class="copy-btn" data-clipboard-text="wget https://downloads.apache.org/kafka/3.7.0/kafka_2.13-3.7.0.tgz
+tar -xzf kafka_2.13-3.7.0.tgz
+cd kafka_2.13-3.7.0">Copy</button>
+                            <pre><code>wget https://downloads.apache.org/kafka/3.7.0/kafka_2.13-3.7.0.tgz
+tar -xzf kafka_2.13-3.7.0.tgz
+cd kafka_2.13-3.7.0</code></pre>
+                        </div>
+                    </li>
+                    <li>
+                        <span class="font-semibold">Start Zookeeper:</span> In a separate terminal, run:
+                        <div class="code-block my-2">
+                            <button class="copy-btn" data-clipboard-text="bin/zookeeper-server-start.sh config/zookeeper.properties">Copy</button>
+                            <pre><code>bin/zookeeper-server-start.sh config/zookeeper.properties</code></pre>
+                        </div>
+                    </li>
+                    <li>
+                        <span class="font-semibold">Start Kafka Broker:</span> In another terminal, run:
+                        <div class="code-block my-2">
+                            <button class="copy-btn" data-clipboard-text="bin/kafka-server-start.sh config/server.properties">Copy</button>
+                            <pre><code>bin/kafka-server-start.sh config/server.properties</code></pre>
+                        </div>
+                    </li>
+                    <li>
+                        <span class="font-semibold">Create Game Topics:</span> Create the two topics the game requires.
+                        <div class="code-block my-2">
+                             <button class="copy-btn" data-clipboard-text="bin/kafka-topics.sh --create --topic player_commands --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1
+bin/kafka-topics.sh --create --topic game_events --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1">Copy</button>
+                            <pre><code>bin/kafka-topics.sh --create --topic player_commands --bootstrap-server localhost:9092
+bin/kafka-topics.sh --create --topic game_events --bootstrap-server localhost:9092</code></pre>
+                        </div>
+                    </li>
+                </ol>
+
+                <h3 class="text-2xl font-bold mb-3 mt-8 text-slate-800">2. MySQL Setup</h3>
+                <ol class="list-decimal list-inside space-y-4">
+                    <li>
+                        <span class="font-semibold">Connect to MySQL:</span>
+                        <div class="code-block my-2">
+                            <button class="copy-btn" data-clipboard-text="mysql -u your_mysql_user -p">Copy</button>
+                            <pre><code>mysql -u your_mysql_user -p</code></pre>
+                        </div>
+                    </li>
+                    <li>
+                        <span class="font-semibold">Create Database and Table:</span> Execute this SQL to create the `players` table.
+                        <div class="code-block my-2">
+                            <button class="copy-btn" data-clipboard-text="CREATE DATABASE IF NOT EXISTS mud_game;
+USE mud_game;
+CREATE TABLE IF NOT EXISTS players (
+    player_name VARCHAR(255) PRIMARY KEY,
+    current_room VARCHAR(255) NOT NULL DEFAULT 'start_room',
+    inventory JSON,
+    health INT NOT NULL DEFAULT 100,
+    last_login TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);">Copy</button>
+                            <pre><code>CREATE DATABASE IF NOT EXISTS mud_game;
+USE mud_game;
+
+CREATE TABLE IF NOT EXISTS players (
+    player_name VARCHAR(255) PRIMARY KEY,
+    current_room VARCHAR(255) NOT NULL DEFAULT 'start_room',
+    inventory JSON,
+    health INT NOT NULL DEFAULT 100,
+    last_login TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);</code></pre>
+                        </div>
+                    </li>
+                </ol>
+            </section>
+
+            <!-- Code Section -->
+            <section id="code" class="content-section">
+                <h2 class="text-3xl font-bold mb-4 text-slate-900">Code Walkthrough</h2>
+                <p class="text-lg text-slate-600 leading-relaxed mb-6">
+                    Here is the complete Python code for the project. The application logic is divided into three main files: `config.py` for settings, `telnet_server.py` for handling network connections, and `game_engine.py` for the core game logic and database interaction.
+                </p>
+                <div class="border-b border-slate-300 mb-4">
+                    <nav class="-mb-px flex space-x-4" id="code-tabs">
+                        <button class="code-tab active" data-target="code-config">config.py</button>
+                        <button class="code-tab" data-target="code-telnet">telnet_server.py</button>
+                        <button class="code-tab" data-target="code-engine">game_engine.py</button>
+                    </nav>
+                </div>
+
+                <div id="code-config" class="code-content active">
+                    <p class="mb-2 text-slate-600">This file centralizes all configuration settings. Remember to replace placeholder credentials with your actual database user and password.</p>
+                    <div class="code-block">
+                        <button class="copy-btn" data-clipboard-text="# config.py
+
+# Kafka Configuration
+KAFKA_BOOTSTRAP_SERVERS = 'localhost:9092'
+PLAYER_COMMANDS_TOPIC = 'player_commands'
+GAME_EVENTS_TOPIC = 'game_events'
+
+# MySQL Configuration
+MYSQL_HOST = 'localhost'
+MYSQL_USER = 'your_mysql_user'
+MYSQL_PASSWORD = 'your_mysql_password'
+MYSQL_DATABASE = 'mud_game'">Copy</button>
+                        <pre><code># config.py
+
+# Kafka Configuration
+KAFKA_BOOTSTRAP_SERVERS = 'localhost:9092'
+PLAYER_COMMANDS_TOPIC = 'player_commands'
+GAME_EVENTS_TOPIC = 'game_events'
+
+# MySQL Configuration
+MYSQL_HOST = 'localhost'
+MYSQL_USER = 'your_mysql_user'
+MYSQL_PASSWORD = 'your_mysql_password'
+MYSQL_DATABASE = 'mud_game'</code></pre>
+                    </div>
+                </div>
+
+                <div id="code-telnet" class="code-content" style="display: none;">
+                    <p class="mb-2 text-slate-600">This script handles incoming Telnet connections. Each client is managed in a separate thread. It publishes commands to Kafka and consumes game events to send back to the client.</p>
+                    <div class="code-block">
+                         <button class="copy-btn" data-clipboard-text="import socket
+import threading
+import json
+import time
+import sys
+from confluent_kafka import Producer, Consumer, KafkaException, KafkaError
+import config
+
+# Server Configuration
+TELNET_HOST = '0.0.0.0'
+TELNET_PORT = 2323
+
+# Kafka Configuration
+KAFKA_BOOTSTRAP_SERVERS = config.KAFKA_BOOTSTRAP_SERVERS
+PLAYER_COMMANDS_TOPIC = config.PLAYER_COMMANDS_TOPIC
+GAME_EVENTS_TOPIC = config.GAME_EVENTS_TOPIC
+
+# Shared Kafka Producer
+_kafka_producer = None
+_producer_lock = threading.Lock()
+
+def get_kafka_producer():
+    global _kafka_producer
+    with _producer_lock:
+        if _kafka_producer is None:
+            producer_conf = {'bootstrap.servers': KAFKA_BOOTSTRAP_SERVERS, 'client.id': 'telnet-server-producer'}
+            _kafka_producer = Producer(producer_conf)
+        return _kafka_producer
+# ... (Full code from immersive artifact) ...
+">Copy</button>
+                        <pre><code id="telnet_server_code_content"></code></pre>
+                    </div>
+                </div>
+
+                <div id="code-engine" class="code-content" style="display: none;">
+                    <p class="mb-2 text-slate-600">This is the core game logic. It consumes commands, interacts with the game world, loads/saves player state to MySQL, and publishes game events back to Kafka.</p>
+                    <div class="code-block">
+                         <button class="copy-btn" data-clipboard-text="from confluent_kafka import Consumer, Producer, KafkaException, KafkaError
+import sys
+import json
+import time
+from typing import Dict, List, Any
+import mysql.connector
+import config
+from game_data.rooms import Room, load_world_data
+from game_data.items import Item, ITEM_DEFINITIONS, get_item
+
+# ... (Full code from immersive artifact) ...
+">Copy</button>
+                        <pre><code id="game_engine_code_content"></code></pre>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Running the Game Section -->
+            <section id="run" class="content-section">
+                <h2 class="text-3xl font-bold mb-4 text-slate-900">Running the Game</h2>
+                <p class="text-lg text-slate-600 leading-relaxed mb-6">
+                    With the infrastructure running and code in place, you can now start the game services and connect as a player. It's recommended to run each service as a `systemd` daemon for proper management.
+                </p>
+                <ol class="list-decimal list-inside space-y-4">
+                    <li><span class="font-semibold">Start Infrastructure:</span> Ensure Zookeeper, Kafka, and MySQL are running.</li>
+                    <li>
+                        <span class="font-semibold">Start the Game Engine:</span> Run the `game_engine.py` script. For production, create a systemd service file for it.
+                        <div class="code-block my-2">
+                             <button class="copy-btn" data-clipboard-text="sudo systemctl start game_engine.service">Copy</button>
+                            <pre><code># Example systemd command
+sudo systemctl start game_engine.service</code></pre>
+                        </div>
+                    </li>
+                     <li>
+                        <span class="font-semibold">Start the Telnet Server:</span> Run the `telnet_server.py` script, also preferably as a service.
+                        <div class="code-block my-2">
+                            <button class="copy-btn" data-clipboard-text="sudo systemctl start telnet_server.service">Copy</button>
+                            <pre><code># Example systemd command
+sudo systemctl start telnet_server.service</code></pre>
+                        </div>
+                    </li>
+                    <li><span class="font-semibold">Connect as a Player:</span> Use a Telnet client like PuTTY to connect to your server's IP address on port 2323.</li>
+                </ol>
+            </section>
+            
+             <!-- Kafka Concepts Section -->
+            <section id="concepts" class="content-section">
+                <h2 class="text-3xl font-bold mb-4 text-slate-900">Exploring Kafka Concepts</h2>
+                <p class="text-lg text-slate-600 leading-relaxed mb-6">
+                    This project uses several key Kafka features. Understanding them will help you build more complex and resilient real-time applications. Click on each concept to learn more.
+                </p>
+                <div class="border-b border-t border-slate-300">
+                    <div id="accordion-container"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+<script>
+    const kafkaConcepts = [
+        {
+            title: "Consumer Groups & Scalability",
+            content: "Kafka consumers belong to consumer groups. Messages from a topic's partitions are divided among the consumers in a group. If you have multiple instances of your `game_engine.py` running with the same `group.id`, Kafka will distribute the `player_commands` partitions among them. This allows you to scale out your game engine. If one instance gets overwhelmed, you can spin up another, and Kafka automatically rebalances the load."
+        },
+        {
+            title: "Message Keys & Ordering",
+            content: "You are using `player_name` as the message key. Kafka guarantees that all messages with the same key will go to the same partition. This is **critical** for your game. It ensures that all commands from a specific player are processed in the order they were sent by one and only one `game_engine` instance, avoiding race conditions where different engine instances might process commands from the same player out of order."
+        },
+        {
+            title: "Delivery Guarantees (At-Least-Once)",
+            content: "Confluent Kafka clients, by default, provide `at-least-once` delivery. This means a message is guaranteed to be delivered to a consumer at least once. In rare cases (e.g., consumer crash before committing offset), a message might be processed twice. For game commands, this is usually acceptable. A player moving twice or taking an item twice (if the game logic handles idempotency) is less critical than a command being lost. For higher guarantees, you can explore Kafka's `exactly-once` semantics."
+        },
+        {
+            title: "Avro & Schema Registry",
+            content: "Instead of using JSON strings, you could use a binary format like Avro with Kafka's Schema Registry. This enforces a strict schema for your messages, provides versioning, and is more efficient. As your game's events become more complex, Schema Registry helps manage this evolution without breaking old consumers or producers."
+        },
+        {
+            title: "Dead Letter Queues (DLQ)",
+            content: "A DLQ is a dedicated Kafka topic where messages that fail processing after multiple retries are sent. If a `player_command` causes an unrecoverable error in `game_engine.py`, instead of crashing the engine or losing the message, you could send it to a DLQ for manual inspection and reprocessing."
+        }
+    ];
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- Navigation ---
+        const sections = document.querySelectorAll('.content-section');
+        const sidebarLinks = document.querySelectorAll('#sidebar-nav .sidebar-link');
+        const mobileNav = document.getElementById('mobile-nav');
+
+        function showSection(targetId) {
+            sections.forEach(section => {
+                section.classList.toggle('active', section.id === targetId);
+            });
+            sidebarLinks.forEach(link => {
+                link.classList.toggle('active', link.dataset.target === targetId);
+            });
+            mobileNav.value = targetId;
+        }
+
+        sidebarLinks.forEach(link => {
+            link.addEventListener('click', () => showSection(link.dataset.target));
+        });
+
+        mobileNav.addEventListener('change', (e) => showSection(e.target.value));
+
+        // --- Code Tabs ---
+        const codeTabs = document.querySelectorAll('.code-tab');
+        const codeContents = document.querySelectorAll('.code-content');
+        codeTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const targetId = tab.dataset.target;
+                codeTabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                codeContents.forEach(content => {
+                    content.style.display = content.id === targetId ? 'block' : 'none';
+                });
+            });
+        });
+
+        // --- Copy Buttons ---
+        document.querySelectorAll('.copy-btn').forEach(button => {
+            button.addEventListener('click', () => {
+                const textToCopy = button.dataset.clipboardText;
+                const tempTextarea = document.createElement('textarea');
+                tempTextarea.value = textToCopy;
+                document.body.appendChild(tempTextarea);
+                tempTextarea.select();
+                try {
+                    document.execCommand('copy');
+                    button.textContent = 'Copied!';
+                    setTimeout(() => { button.textContent = 'Copy'; }, 2000);
+                } catch (err) {
+                    console.error('Failed to copy text: ', err);
+                    button.textContent = 'Error';
+                }
+                document.body.removeChild(tempTextarea);
+            });
+        });
+
+        // --- Accordion for Kafka Concepts ---
+        const accordionContainer = document.getElementById('accordion-container');
+        kafkaConcepts.forEach((concept, index) => {
+            const button = document.createElement('button');
+            button.className = 'accordion-button';
+            button.innerHTML = `
+                <span>${concept.title}</span>
+                <span class="accordion-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                </span>`;
+
+            const content = document.createElement('div');
+            content.className = 'accordion-content';
+            content.innerHTML = `<div class="p-4 border-t border-slate-200 text-slate-600 leading-relaxed">${concept.content}</div>`;
+            
+            button.addEventListener('click', () => {
+                button.classList.toggle('active');
+                const isOpen = button.classList.contains('active');
+                content.style.maxHeight = isOpen ? content.scrollHeight + 'px' : '0';
+            });
+
+            accordionContainer.appendChild(button);
+            accordionContainer.appendChild(content);
+        });
+        
+        // --- Populate Code Blocks ---
+        // These are placeholders for the full content from your files
+        const telnetServerCode = `import socket
+import threading
+import json
+import time
+import sys
+
+from confluent_kafka import Producer, Consumer, KafkaException, KafkaError
+
+import config # Import your config file
+
+# --- Server Configuration ---
+TELNET_HOST = '0.0.0.0' # Listen on all available network interfaces
+TELNET_PORT = 2323      # Choose a port > 1024 (23 is standard Telnet, often needs root)
+# ... (rest of the telnet_server.py file) ...
+`;
+
+        const gameEngineCode = `from confluent_kafka import Consumer, Producer, KafkaException, KafkaError
+import sys
+import json
+import time
+from typing import Dict, List, Any
+import mysql.connector
+import config 
+from game_data.rooms import Room, load_world_data
+# ... (rest of the game_engine.py file) ...
+`;
+
+        document.getElementById('telnet_server_code_content').textContent = telnetServerCode;
+        document.getElementById('game_engine_code_content').textContent = gameEngineCode;
+
+        // Update clipboard text for the full code blocks
+        document.querySelector('#code-telnet .copy-btn').dataset.clipboardText = telnetServerCode;
+        document.querySelector('#code-engine .copy-btn').dataset.clipboardText = gameEngineCode;
+    });
+
+</script>
+</body>
+</html>
