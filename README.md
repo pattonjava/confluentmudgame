@@ -1,1 +1,3 @@
 This tutorial will guide you through setting up a simple Python script to monitor real-time events flowing through your Kafka broker, specifically focusing on player actions from your MUD game. This is a fundamental step in understanding how data streams work in a distributed system. The interactive elements below allow you to explore the core concepts, review the Python code, and even simulate a live event stream to solidify your understanding.
+
+View more details here - https://jonathanpatton.com/2025/06/11/basic-real-time-monitoring-with-kafka-consumers-python/
