@@ -2,6 +2,7 @@
 
 from confluent_kafka import Consumer, Producer, KafkaException, KafkaError
 import sys
+import logging
 import json
 import time
 from typing import Dict, List, Any # Added List, Any for better typing of inventory
@@ -17,6 +18,7 @@ import config # Import your config file
 KAFKA_BOOTSTRAP_SERVERS = config.KAFKA_BOOTSTRAP_SERVERS
 PLAYER_COMMANDS_TOPIC = config.PLAYER_COMMANDS_TOPIC
 GAME_EVENTS_TOPIC = config.GAME_EVENTS_TOPIC
+PLAYER_EVENTS_TOPIC = config.PLAYER_EVENTS_TOPIC # Ensure this is defined in config.py
 
 # MySQL Configuration from config.py
 MYSQL_HOST = config.MYSQL_HOST
@@ -159,6 +161,40 @@ def send_game_event(player_name, message, event_type="game_message", room_id=Non
                      callback=delivery_report)
     producer.flush() # Ensure message is sent promptly
 
+# log significan player events to the player_events topic
+def send_player_event(player_id, event_type, event_data):
+    """
+    Function to encapsulate sending player events to Kafka.
+    Call this function whenever a significant player action occurs.
+    """
+    if producer is None:
+        print("Kafka Producer not available. Skipping event.")
+        return
+
+    event = {
+        "timestamp": int(time.time()), # Unix timestamp
+        "player_id": player_id,
+        "event_type": event_type,
+        "data": event_data
+    }
+    event_json = json.dumps(event).encode('utf-8') # Serialize to JSON bytes
+
+    try:
+        # Asynchronously send the message
+        producer.produce(
+            topic=config.PLAYER_EVENTS_TOPIC,
+            value=event_json,
+            callback=delivery_report # Optional: for delivery acknowledgements
+        )
+        print(f"Player event sent: {event_json}");
+        # You might want to flush periodically or on shutdown
+        # producer.flush(timeout=1) # Flush every now and then, or on server shutdown
+    except BufferError:
+        print("Local producer queue is full. Try again later.")
+    except Exception as e:
+        print(f"Failed to send message: {e}")
+
+
 def process_command(player_name: str, command: str):
     """Processes a command from a player."""
     player_state = player_states.get(player_name)
@@ -181,6 +217,7 @@ def process_command(player_name: str, command: str):
 
     elif parsed_command == 'move':
         target_room_id = current_room.get_exit(arg)
+
         if target_room_id:
             # Announce departure to current room (except self)
             for p_name, p_state in player_states.items():
@@ -205,6 +242,10 @@ def process_command(player_name: str, command: str):
 
             # SAVE PLAYER LOCATION AFTER MOVEMENT
             save_player_state(player_name, player_state)
+            #description = "Move from:"
+            #send_player_event(player_name,"move",WORLD_MAP[target_room_id].get_full_description());
+
+
         else:
             send_game_event(player_name, f"You cannot move {arg} from here.")
 
@@ -250,7 +291,7 @@ def process_command(player_name: str, command: str):
     elif parsed_command == 'help':
         help_message = "Available commands:\r\n"
         for cmd, desc in HELP_COMMANDS.items():
-            help_message += f"  - {cmd}: {desc}\r\n"
+            help_message += f"   - {cmd}: {desc}\r\n"
         send_game_event(player_name, help_message.strip())
 
     elif parsed_command == 'quit':
@@ -291,7 +332,7 @@ def run_game_engine():
             if msg.error():
                 if msg.error().code() == KafkaError._PARTITION_EOF:
                     sys.stderr.write(f'%% {msg.topic()} [{msg.partition()}] reached end offset {msg.offset()}\n')
-                elif msg.error():
+                else: # Changed from elif msg.error() to else to simplify logic
                     raise KafkaException(msg.error())
             else:
                 player_name = msg.key().decode('utf-8') if msg.key() else "unknown_player"
